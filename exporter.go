@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/samalba/dockerclient"
 )
 
 var blkioKeys = []string{"device", "operation"}
@@ -17,25 +17,23 @@ type exporter struct {
 	blockIOps    prometheus.Counter
 	blockIOBytes prometheus.Counter
 
-	containers map[string]dockerclient.Container
+	containers map[string]docker.APIContainers
 	registry   prometheus.Registry
-
-	docker dockerclient.DockerClient
 }
 
 func newExporter(registry prometheus.Registry, dockerUrl string) (*exporter, error) {
-	docker, err := dockerclient.NewDockerClient(dockerUrl)
+	dc, err := docker.NewClient(dockerUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	cs, err := docker.ListContainers(false)
+	cs, err := dc.ListContainers(docker.ListContainersOptions{All: false})
 	if err != nil {
 		return nil, err
 	}
-	containers := map[string]dockerclient.Container{}
+	containers := map[string]docker.APIContainers{}
 	for _, container := range cs {
-		containers[container.Id] = container
+		containers[container.ID] = container
 	}
 
 	memoryStats := prometheus.NewGauge()
@@ -109,7 +107,7 @@ func (e *exporter) walkFile(path string, info os.FileInfo, err error) error {
 				}
 
 				labels["container"] = strings.TrimPrefix(container.Names[0], "/")
-				labels["container_id"] = container.Id
+				labels["container_id"] = container.ID
 				gauge.Set(labels, value)
 			}
 		}
