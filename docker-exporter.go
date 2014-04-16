@@ -29,6 +29,11 @@ func main() {
 	scrapeDurations := prometheus.NewDefaultHistogram()
 	registry.Register("docker_scrape_duration_seconds", "node_exporter: Duration of a scrape job.", prometheus.NilLabels, scrapeDurations)
 
+	dockerExporter, err := newExporter(registry, *addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	go func() {
 		exp.Handle(prometheus.ExpositionResource, registry.Handler())
 		log.Fatal(http.ListenAndServe(*listen, exp.DefaultCoarseMux))
@@ -37,12 +42,11 @@ func main() {
 	tick := time.Tick(*interval)
 	for {
 		log.Print("Updating metrics")
-		de, err := newExporter(registry, *addr)
-		if err != nil {
+		begin := time.Now()
+		if err := dockerExporter.reload(); err != nil {
 			log.Fatal(err)
 		}
-		begin := time.Now()
-		if err := filepath.Walk(*root, de.walkFile); err != nil {
+		if err := filepath.Walk(*root, dockerExporter.walkFile); err != nil {
 			log.Fatal(err)
 		}
 		scrapeDurations.Add(prometheus.NilLabels, time.Since(begin).Seconds())

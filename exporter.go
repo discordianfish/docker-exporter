@@ -18,24 +18,11 @@ type exporter struct {
 	blockIOBytes prometheus.Counter
 
 	containers map[string]docker.APIContainers
+	dockerUrl  string
 	registry   prometheus.Registry
 }
 
 func newExporter(registry prometheus.Registry, dockerUrl string) (*exporter, error) {
-	dc, err := docker.NewClient(dockerUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	cs, err := dc.ListContainers(docker.ListContainersOptions{All: false})
-	if err != nil {
-		return nil, err
-	}
-	containers := map[string]docker.APIContainers{}
-	for _, container := range cs {
-		containers[container.ID] = container
-	}
-
 	memoryStats := prometheus.NewGauge()
 	cpuStats := prometheus.NewGauge()
 	blockIOps := prometheus.NewCounter()
@@ -46,15 +33,34 @@ func newExporter(registry prometheus.Registry, dockerUrl string) (*exporter, err
 	registry.Register("container_blockiops", "docker_exporter: IO operations to/from container", prometheus.NilLabels, blockIOps)
 	registry.Register("container_blockio_bytes", "docker_exporter: IO bytes to/from container", prometheus.NilLabels, blockIOBytes)
 
-	return &exporter{
+	e := &exporter{
 		memoryStats:  memoryStats,
 		cpuStats:     cpuStats,
 		blockIOps:    blockIOps,
 		blockIOBytes: blockIOBytes,
 
-		containers: containers,
-		registry:   registry,
-	}, nil
+		dockerUrl: dockerUrl,
+		registry:  registry,
+	}
+	return e, e.reload()
+}
+
+func (e *exporter) reload() error {
+	dc, err := docker.NewClient(e.dockerUrl)
+	if err != nil {
+		return err
+	}
+
+	cs, err := dc.ListContainers(docker.ListContainersOptions{All: false})
+	if err != nil {
+		return err
+	}
+
+	e.containers = map[string]docker.APIContainers{}
+	for _, container := range cs {
+		e.containers[container.ID] = container
+	}
+	return nil
 }
 
 // update metric if Base(Dir(path)) is in list of container and we can handle Name
