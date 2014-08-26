@@ -1,11 +1,14 @@
-# docker-exporter
+# DEPRECATED
+This exporter was depricated in favor of [container-exporter](http://github.com/discordianfish/container-exporter).
+
+## docker-exporter
 
 This exposes metrics about docker and it's containers on /metrics.
 This data is expected to be consumed by [prometheus](http://github.com/prometheus/prometheus)
 but might be useful to you on it's own.
 
 
-# Usage
+## Usage
 
     Usage of ./docker-exporter:
       -addr="unix:///var/run/docker.sock": Docker address to connect to
